@@ -6,23 +6,53 @@ const client = mqtt.connect(env.BROKER_URL, {
   password: env.BROKER_PASSWORD,
 });
 
-const serials = ["A123", "B456", "C789"];
+const ihmSerials = ["ihm001"];
+const edgeDevices = [] as string[];
+
+const publish = (topic: string, message: string) => {
+  client.publish(topic, message, (err) => {
+    if (err) console.error("Error publishing message:", err);
+    else if (env.DEBUG)
+      console.log(`Message published to topic "${topic}": ${message}`);
+  });
+};
+
+const publishOperationSuccess = (serial: string, operationSuccess: boolean) => {
+  const topic = `devices/${serial}/events`;
+  const message = operationSuccess
+    ? "OPERATION DONE"
+    : "ERROR: something went wrong";
+
+  publish(topic, message);
+};
+
+const publishDownTime = (serial: string, downTime: number) => {
+  const topic = `devices/${serial}/data`;
+  const message = JSON.stringify({
+    machine: { downTime: downTime },
+    device: {
+      ip: "0.0.0.0",
+      mac: "00:00:00:00:00:00",
+    },
+  });
+
+  publish(topic, message);
+};
 
 const fakeOperation = async (serial: string) => {
-  const topic = `devices/${serial}/events`;
-  while (true) {
-    const operationTime = Math.floor(Math.random() * 30);
-    await new Promise((resolve) => setTimeout(resolve, operationTime * 1000));
-    const operationSuccess = Math.random() > 0.2;
-    const message = operationSuccess
-      ? "OPERATION DONE"
-      : "ERROR: something went wrong";
+  let downTime = 0;
 
-    client.publish(topic, message, (err) => {
-      if (err) console.error("Error publishing message:", err);
-      else if (env.DEBUG)
-        console.log(`Message published to topic "${topic}": ${message}`);
-    });
+  while (true) {
+    let operationTime = Math.floor(Math.random() * 5 + 3);
+    while (operationTime > 0) {
+      publishDownTime(serial, downTime);
+      operationTime--;
+      downTime++;
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+    const operationSuccess = Math.random() > 0.2;
+    publishOperationSuccess(serial, operationSuccess);
+    if (operationSuccess) downTime = 0;
   }
 };
 
@@ -60,34 +90,61 @@ const fakeEnergy = async (serial: string) => {
       ],
     });
     await new Promise((resolve) => setTimeout(resolve, 1000));
-    client.publish(topic, message, (err) => {
-      if (err) console.error("Error publishing message:", err);
-      else if (env.DEBUG)
-        console.log(`Message published to topic "${topic}": ${message}`);
+    publish(topic, message);
+  }
+};
+
+const fakeVibration = async (serial: string) => {
+  const topic = `nxt/${serial}/vibration/events`;
+
+  while (true) {
+    const message = JSON.stringify({
+      id: serial,
+      dt: new Date().toISOString(),
+      ax: Math.floor(Math.random() * 100),
+      ay: Math.floor(Math.random() * 100),
+      az: Math.floor(Math.random() * 100),
+      rms: Math.floor(Math.random() * 100),
     });
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    publish(topic, message);
+  }
+};
+
+const fakeEnvironment = async (serial: string) => {
+  const topic = `nxt/${serial}/environment`;
+
+  while (true) {
+    const message = JSON.stringify({
+      tmp: Math.floor(Math.random() * 100),
+      hum: Math.floor(Math.random() * 100),
+    });
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    publish(topic, message);
   }
 };
 
 client.on("connect", () => {
   console.log("Connected to MQTT broker");
 
-  serials.forEach((serial) => {
+  ihmSerials.forEach((serial) => {
     fakeOperation(serial);
     fakeEnergy(serial);
   });
+  edgeDevices.forEach((serial) => {
+    fakeVibration(serial);
+    fakeEnvironment(serial);
+  });
 });
 
-// Event handler for when an error occurs
 client.on("error", (err) => {
   console.error("MQTT client error:", err);
 });
 
-// Event handler for when the client is disconnected
 client.on("close", () => {
   console.log("Disconnected from MQTT broker");
 });
 
-// Event handler for when the client receives a message
 client.on("message", (topic, message) => {
   console.log(`Received message on topic "${topic}": ${message}`);
 });
