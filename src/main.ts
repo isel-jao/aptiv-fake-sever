@@ -6,8 +6,8 @@ const client = mqtt.connect(env.BROKER_URL, {
   password: env.BROKER_PASSWORD,
 });
 
-const ihmSerials = ["ihm001", "ihm002"];
-const edgeDevices = [] as string[];
+const ihmSerials = [] as string[];
+const edgeDevices = ["edge01"] as string[];
 
 const publish = (topic: string, message: string) => {
   client.publish(topic, message, (err) => {
@@ -141,6 +141,7 @@ client.on("connect", () => {
   edgeDevices.forEach((serial) => {
     // fakeVibration(serial);
     // fakeEnvironment(serial);
+    fakeEnergy(serial);
   });
 });
 
