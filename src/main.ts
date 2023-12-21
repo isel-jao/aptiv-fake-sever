@@ -6,7 +6,7 @@ const client = mqtt.connect(env.BROKER_URL, {
   password: env.BROKER_PASSWORD,
 });
 
-const ihmSerials = ["ihm001"];
+const ihmSerials = ["ihm001", "ihm002"];
 const edgeDevices = [] as string[];
 
 const publish = (topic: string, message: string) => {
@@ -25,16 +25,9 @@ const publishOperationSuccess = (serial: string, operationSuccess: boolean) => {
 
   publish(topic, message);
 };
-
-const publishDownTime = (serial: string, downTime: number) => {
-  const topic = `devices/${serial}/data`;
-  const message = JSON.stringify({
-    machine: { downTime: downTime },
-    device: {
-      ip: "0.0.0.0",
-      mac: "00:00:00:00:00:00",
-    },
-  });
+const publishMachineStatus = (serial: string, isOn: boolean) => {
+  const topic = `devices/${serial}/status`;
+  const message = isOn ? "ON" : "OFF";
 
   publish(topic, message);
 };
@@ -43,9 +36,8 @@ const fakeOperation = async (serial: string) => {
   let downTime = 0;
 
   while (true) {
-    let operationTime = Math.floor(Math.random() * 5 + 3);
+    let operationTime = Math.floor(Math.random() * 10 + 3);
     while (operationTime > 0) {
-      publishDownTime(serial, downTime);
       operationTime--;
       downTime++;
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -53,6 +45,21 @@ const fakeOperation = async (serial: string) => {
     const operationSuccess = Math.random() > 0.2;
     publishOperationSuccess(serial, operationSuccess);
     if (operationSuccess) downTime = 0;
+  }
+};
+
+const fakeStatus = async (serial: string) => {
+  let downTime = 0;
+
+  while (true) {
+    const isOn = Math.random() > 0.3;
+    let upDownTime = Math.floor(Math.random() * 10 + 5);
+    while (upDownTime > 0) {
+      upDownTime--;
+      downTime++;
+      publishMachineStatus(serial, isOn);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
   }
 };
 
@@ -129,11 +136,11 @@ client.on("connect", () => {
 
   ihmSerials.forEach((serial) => {
     fakeOperation(serial);
-    fakeEnergy(serial);
+    fakeStatus(serial);
   });
   edgeDevices.forEach((serial) => {
-    fakeVibration(serial);
-    fakeEnvironment(serial);
+    // fakeVibration(serial);
+    // fakeEnvironment(serial);
   });
 });
 

@@ -4,8 +4,8 @@ dotenv.config();
 
 const envSchema = z.object({
   BROKER_URL: z.string().url().default("mqtt://localhost:1883"),
-  BROKER_USERNAME: z.string().default("root"),
-  BROKER_PASSWORD: z.string().default("toor"),
+  BROKER_USERNAME: z.string().default("username"),
+  BROKER_PASSWORD: z.string().default("password"),
   DEBUG: z
     .string()
     .transform((val) => val === "true")
